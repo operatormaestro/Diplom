@@ -7,7 +7,6 @@ import org.springframework.data.domain.Limit;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import ru.netology.cloudstorage.dto.FileListResponse;
 import ru.netology.cloudstorage.dto.FileNameEditRequest;
 import ru.netology.cloudstorage.entity.Storage;
 import ru.netology.cloudstorage.entity.User;
@@ -17,7 +16,6 @@ import ru.netology.cloudstorage.repository.StorageRepository;
 import ru.netology.cloudstorage.repository.UserRepository;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -27,26 +25,20 @@ public class StorageService {
     private final UserRepository userRepository;
     private final StorageRepository storageRepository;
 
-    public void uploadFile(String filename, MultipartFile file) {
+    public void uploadFile(User user, String filename, MultipartFile file) {
         try {
-            var user = getUserFromSecurityContext();
             storageRepository.save(new Storage(filename, file.getSize(), file.getBytes(), user));
-        } catch (BadRequestException e) {
-            throw e;
+            log.info("File: " + filename + " uploaded. Size: " + file.getSize());
         } catch (Exception e) {
             throw new InternalServerException("Error upload file", e.getMessage());
         }
     }
 
-    public List<FileListResponse> getFileList(Integer limit) {
+    public List<Storage> getFileList(User user, Integer limit) {
         try {
-            var user = getUserFromSecurityContext();
-            var storages = storageRepository.findAllByUser(user, Limit.of(limit));
-            return storages.stream()
-                    .map(o -> new FileListResponse(o.getFileName(), o.getFileSize()))
-                    .collect(Collectors.toList());
-        } catch (BadRequestException e) {
-            throw e;
+            List<Storage> list = storageRepository.findAllByUser(user, Limit.of(limit));
+            log.info("Generated a list of size: " + list.size());
+            return list;
         } catch (Exception e) {
             throw new InternalServerException("Error getting file list", e.getMessage());
         }
@@ -55,22 +47,19 @@ public class StorageService {
     public byte[] downloadFile(String filename) {
         try {
             var file = getFileByFilename(filename);
+            log.info("File: " + filename + " downloaded.");
             return file.getFileContent();
-        } catch (BadRequestException e) {
-            throw e;
         } catch (Exception e) {
             throw new InternalServerException("Error download file", e.getMessage());
         }
     }
 
     @Transactional
-    public void deleteFile(String filename) {
+    public void deleteFile(User user, String filename) {
         try {
-            var user = getUserFromSecurityContext();
             getFileByFilename(filename);
             storageRepository.deleteByUserAndFileName(user, filename);
-        } catch (BadRequestException e) {
-            throw e;
+            log.info("File: " + filename + " deleted.");
         } catch (Exception e) {
             throw new InternalServerException(String.format("Error deleting %s", filename), e.getMessage());
         }
@@ -81,26 +70,22 @@ public class StorageService {
             var file = getFileByFilename(filename);
             file.setFileName(fileNameEditRequest.getFilename());
             storageRepository.save(file);
-        } catch (BadRequestException e) {
-            throw e;
+            log.info("File: " + filename + " renamed.");
         } catch (Exception e) {
             throw new InternalServerException(String.format("Error editing %s", filename), e.getMessage());
         }
     }
 
-    private User getUserFromSecurityContext() {
+    private Storage getFileByFilename(String filename) {
+        User user;
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         var username = authentication.getName();
-        var user = userRepository.findByUsername(username);
-        if (user.isPresent()) {
-            return user.get();
+        var userOptional = userRepository.findByUsername(username);
+        if (userOptional.isPresent()) {
+            user = userOptional.get();
         } else {
             throw new BadRequestException(String.format("User %s not found", username));
         }
-    }
-
-    private Storage getFileByFilename(String filename) {
-        var user = getUserFromSecurityContext();
         var file = storageRepository.findByUserAndFileName(user, filename);
         if (file.isPresent()) {
             return file.get();

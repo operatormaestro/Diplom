@@ -10,10 +10,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import ru.netology.cloudstorage.CloudStorageApplicationTests;
+import ru.netology.cloudstorage.dto.FileListResponse;
 import ru.netology.cloudstorage.dto.FileNameEditRequest;
 import ru.netology.cloudstorage.dto.UsernamePasswordAuthentication;
 import ru.netology.cloudstorage.entity.Storage;
-import ru.netology.cloudstorage.exceptions.BadRequestException;
 import ru.netology.cloudstorage.exceptions.InternalServerException;
 import ru.netology.cloudstorage.repository.StorageRepository;
 import ru.netology.cloudstorage.repository.UserRepository;
@@ -53,12 +53,13 @@ class StorageServiceTest extends CloudStorageApplicationTests {
     @Test
     void uploadFile() {
         byte[] bytes = FILENAME_TWO.getBytes();
-        MockMultipartFile mockMultipartFile = new MockMultipartFile(FILENAME_TWO, bytes);
-        storageService.uploadFile(FILENAME_TWO, mockMultipartFile);
 
         assertTrue(userRepository.findByUsername(USERNAME).isPresent());
 
         var user = userRepository.findByUsername(USERNAME).get();
+        MockMultipartFile mockMultipartFile = new MockMultipartFile(FILENAME_TWO, bytes);
+        storageService.uploadFile(user, FILENAME_TWO, mockMultipartFile);
+
         var storage = storageRepository.findByUserAndFileName(user, FILENAME_TWO);
 
         assertTrue(storage.isPresent());
@@ -68,12 +69,23 @@ class StorageServiceTest extends CloudStorageApplicationTests {
 
     @Test
     void uploadFileError() {
-        assertThrows(InternalServerException.class, () -> storageService.uploadFile(FILENAME_ONE, null));
+
+        assertTrue(userRepository.findByUsername(USERNAME).isPresent());
+
+        var user = userRepository.findByUsername(USERNAME).get();
+
+        assertThrows(InternalServerException.class, () -> storageService.uploadFile(user, FILENAME_ONE, null));
     }
 
     @Test
     void getFileList() {
-        var fileList = storageService.getFileList(3);
+        assertTrue(userRepository.findByUsername(USERNAME).isPresent());
+
+        var user = userRepository.findByUsername(USERNAME).get();
+
+        var fileList = storageService.getFileList(user,3).stream()
+                .map(o -> new FileListResponse(o.getFileName(), o.getFileSize()))
+                .toList();
 
         assertFalse(fileList.isEmpty());
         assertEquals(fileList.size(), 1);
@@ -93,16 +105,15 @@ class StorageServiceTest extends CloudStorageApplicationTests {
 
     @Test
     void downloadFileError() {
-        assertThrows(BadRequestException.class, () -> storageService.downloadFile(FILENAME_WRONG));
+        assertThrows(InternalServerException.class, () -> storageService.downloadFile(FILENAME_WRONG));
     }
 
     @Test
     void deleteFile() {
-        storageService.deleteFile(FILENAME_ONE);
-
         assertTrue(userRepository.findByUsername(USERNAME).isPresent());
 
         var user = userRepository.findByUsername(USERNAME).get();
+        storageService.deleteFile(user, FILENAME_ONE);
         var storage = storageRepository.findByUserAndFileName(user, FILENAME_ONE);
 
         assertFalse(storage.isPresent());
@@ -110,7 +121,11 @@ class StorageServiceTest extends CloudStorageApplicationTests {
 
     @Test
     void deleteFileError() {
-        assertThrows(BadRequestException.class, () -> storageService.deleteFile(FILENAME_WRONG));
+        assertTrue(userRepository.findByUsername(USERNAME).isPresent());
+
+        var user = userRepository.findByUsername(USERNAME).get();
+
+        assertThrows(InternalServerException.class, () -> storageService.deleteFile(user, FILENAME_WRONG));
     }
 
     @Test
@@ -129,7 +144,7 @@ class StorageServiceTest extends CloudStorageApplicationTests {
 
     @Test
     void editFileNameError() {
-        assertThrows(BadRequestException.class, () -> storageService.editFileName(FILENAME_WRONG,
+        assertThrows(InternalServerException.class, () -> storageService.editFileName(FILENAME_WRONG,
                 new FileNameEditRequest(FILENAME_TWO)));
     }
 

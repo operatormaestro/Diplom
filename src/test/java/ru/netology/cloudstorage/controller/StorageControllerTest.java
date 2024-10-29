@@ -13,6 +13,7 @@ import ru.netology.cloudstorage.CloudStorageApplicationTests;
 import ru.netology.cloudstorage.dto.FileListResponse;
 import ru.netology.cloudstorage.dto.FileNameEditRequest;
 import ru.netology.cloudstorage.dto.UsernamePasswordAuthentication;
+import ru.netology.cloudstorage.entity.Storage;
 import ru.netology.cloudstorage.service.StorageService;
 
 import java.util.List;
@@ -43,12 +44,12 @@ class StorageControllerTest extends CloudStorageApplicationTests {
     @Test
     void getAllFiles() throws Exception {
         setAuthentication();
-        List<FileListResponse> list = List.of(FileListResponse.builder()
-                .filename(FILENAME_ONE)
-                .size(FILE_SIZE)
+        List<Storage> list = List.of(Storage.builder()
+                .fileName(FILENAME_ONE)
+                .fileSize(FILE_SIZE)
                 .build());
 
-        when(storageService.getFileList(any())).thenReturn(list);
+        when(storageService.getFileList(any(), any())).thenReturn(list);
 
         var result = mockMvc.perform(get(LIST_FILE_ENDPOINT).param(LIMIT_PARAMETER, String.valueOf(1)))
                 .andExpect(status().isOk())
@@ -56,8 +57,8 @@ class StorageControllerTest extends CloudStorageApplicationTests {
         var resultArray = objectMapper.readValue(result.getResponse().getContentAsString(), FileListResponse[].class);
 
         assertEquals(resultArray.length, 1);
-        assertEquals(resultArray[0].getFilename(), list.get(0).getFilename());
-        assertEquals(resultArray[0].getSize(), list.get(0).getSize());
+        assertEquals(resultArray[0].getFilename(), list.get(0).getFileName());
+        assertEquals(resultArray[0].getSize(), list.get(0).getFileSize());
     }
 
     @Test
@@ -95,7 +96,7 @@ class StorageControllerTest extends CloudStorageApplicationTests {
     void uploadFile() throws Exception {
         setAuthentication();
 
-        Mockito.doNothing().when(storageService).uploadFile(any(), any());
+        Mockito.doNothing().when(storageService).uploadFile(any(), any(), any());
 
         mockMvc.perform(post(FILE_ENDPOINT).param(FILENAME_PARAMETER, FILENAME_TWO))
                 .andExpect(status().isOk());
@@ -114,7 +115,7 @@ class StorageControllerTest extends CloudStorageApplicationTests {
     void deleteFile() throws Exception {
         setAuthentication();
 
-        Mockito.doNothing().when(storageService).deleteFile(any());
+        Mockito.doNothing().when(storageService).deleteFile(any(), any());
 
         mockMvc.perform(delete(FILE_ENDPOINT).param(FILENAME_PARAMETER, FILENAME_TWO))
                 .andExpect(status().isOk());

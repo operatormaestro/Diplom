@@ -6,8 +6,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import ru.netology.cloudstorage.CloudStorageApplicationTests;
 import ru.netology.cloudstorage.repository.UserRepository;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static ru.netology.cloudstorage.StringTestConstants.USERNAME;
 import static ru.netology.cloudstorage.StringTestConstants.USERNAME_WRONG;
 
@@ -24,6 +23,8 @@ class UserDetailsServiceImplTest extends CloudStorageApplicationTests {
         var user = userRepository.findByUsername(USERNAME);
         var userDetail = userDetailsService.loadUserByUsername(USERNAME);
 
+
+        assertTrue(user.isPresent());
         assertEquals(userDetail.getUsername(), user.get().getUsername());
         assertEquals(userDetail.getPassword(), user.get().getPassword());
     }
